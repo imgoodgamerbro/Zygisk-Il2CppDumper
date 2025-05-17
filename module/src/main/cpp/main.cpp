@@ -27,21 +27,79 @@
 
 
 
-__attribute__((constructor))
-void lib_main() {
-    LOGI("lib_main constructor called");
+#include <jni.h>
+#include <unistd.h>
+#include <pthread.h>
+#include <fcntl.h>
+#include <sys/mman.h>
+#include <sys/stat.h>
+#include <cstring>
+#include <android/log.h>
 
-   /* // Try to attach to JVM if needed
-    void* handle = dlopen("libandroid_runtime.so", RTLD_NOW);
-    if (handle) {
-        LOGI("libandroid_runtime.so loaded (optional)");
-    }*/
+#define LOGI(...) __android_log_print(ANDROID_LOG_INFO, "libhack", __VA_ARGS__)
+#define LOGW(...) __android_log_print(ANDROID_LOG_WARN, "libhack", __VA_ARGS__)
+#define LOGE(...) __android_log_print(ANDROID_LOG_ERROR, "libhack", __VA_ARGS__)
+
+const char *GamePackageName = "com.OneManEmpire.SurvivalOdyssey";  // <-- change this
+const char *GameDataDir     = "/data/data/com.OneManEmpire.SurvivalOdyssey";  // <-- change this
+
+void *data = nullptr;
+size_t length = 0;
+
+void *hack_thread(void *) {
+    LOGI("Hack thread started");
+
+    // Your logic here. E.g., patch memory, hook function, etc.
+    // Maybe wait for libraries to load:
+    sleep(2);
+
+    LOGI("Hack thread done");
+    return nullptr;
+}
+
+void prepare_hack(const char *app_data_dir) {
+    LOGI("Preparing hack for: %s", app_data_dir);
+
+#if defined(__i386__)
+    const char *path = "/data/local/tmp/armeabi-v7a.so";
+#elif defined(__x86_64__)
+    const char *path = "/data/local/tmp/arm64-v8a.so";
+#else
+    const char *path = "/data/local/tmp/libpayload.so";
+#endif
+
+    int fd = open(path, O_RDONLY);
+    if (fd != -1) {
+        struct stat sb{};
+        fstat(fd, &sb);
+        length = sb.st_size;
+        data = mmap(nullptr, length, PROT_READ, MAP_PRIVATE, fd, 0);
+        close(fd);
+        LOGI("Mapped %zu bytes from %s", length, path);
+    } else {
+        LOGW("Failed to open arm payload at %s", path);
+    }
 
     pthread_t thread;
     if (pthread_create(&thread, nullptr, hack_thread, nullptr) != 0) {
         LOGE("Failed to create hack thread");
     }
 }
+
+__attribute__((constructor))
+void lib_main() {
+    LOGI("lib_main constructor called");
+
+    // Optional: Check if injected in the correct process
+    char procname[256];
+    readlink("/proc/self/exe", procname, sizeof(procname) - 1);
+    if (strstr(procname, GamePackageName) || access(GameDataDir, F_OK) == 0) {
+        prepare_hack(GameDataDir);
+    } else {
+        LOGI("Not the target app: %s", procname);
+    }
+}
+
 
 /*
 using zygisk::Api;
