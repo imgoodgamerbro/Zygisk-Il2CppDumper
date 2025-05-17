@@ -11,6 +11,39 @@
 #include "game.h"
 #include "log.h"
 
+
+#include <jni.h>
+#include <pthread.h>
+#include <unistd.h>
+#include <dlfcn.h>
+#include <android/log.h>
+#include <fstream>
+#include <iostream>
+#include <fcntl.h>
+#include <sys/ptrace.h>
+#include <sys/wait.h>
+
+
+
+
+
+__attribute__((constructor))
+void lib_main() {
+    LOGI("lib_main constructor called");
+
+   /* // Try to attach to JVM if needed
+    void* handle = dlopen("libandroid_runtime.so", RTLD_NOW);
+    if (handle) {
+        LOGI("libandroid_runtime.so loaded (optional)");
+    }*/
+
+    pthread_t thread;
+    if (pthread_create(&thread, nullptr, hack_thread, nullptr) != 0) {
+        LOGE("Failed to create hack thread");
+    }
+}
+
+/*
 using zygisk::Api;
 using zygisk::AppSpecializeArgs;
 using zygisk::ServerSpecializeArgs;
@@ -77,4 +110,4 @@ private:
     }
 };
 
-REGISTER_ZYGISK_MODULE(MyModule)
+REGISTER_ZYGISK_MODULE(MyModule)*/
